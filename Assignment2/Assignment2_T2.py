@@ -110,14 +110,22 @@ for iTopicList in range(len(numTopicsList)):
 
         # Random initialization matrix updates
         jDocId = 0
-        for iNumber, iWord in enumerate(books.listOfWords[1:]):
-            wordIdentity = booksIV.integerVocab[iWord]
-            prevWord = books.listOfWords[iNumber - 1]
-            prevWordIdentity = booksIV.integerVocab[prevWord]
-            jDocId = books.wordInDocIndex[iNumber]
-            jDocIdPrevWord = books.wordInDocIndex[iNumber - 1]
-            if jDocId == jDocIdPrevWord:
-                bigramTopicFreq[wordIdentity, prevWordIdentity, wordTopic[iNumber]] += 1
+        for iNumber, iWord in enumerate(books.listOfWords):
+            if iNumber > 0:
+                wordIdentity = booksIV.integerVocab[iWord]
+                prevWord = books.listOfWords[iNumber - 1]
+                prevWordIdentity = booksIV.integerVocab[prevWord]
+                jDocId = books.wordInDocIndex[iNumber]
+                jDocIdPrevWord = books.wordInDocIndex[iNumber - 1]
+                if jDocId == jDocIdPrevWord:
+                    bigramTopicFreq[wordIdentity, prevWordIdentity, wordTopic[iNumber]] += 1
+                    wordTopicFreq[wordIdentity, wordTopic[iNumber]] += 1
+                    docTopicFreq[jDocId, wordTopic[iNumber]] += 1
+                else:
+                    wordTopicFreq[wordIdentity, wordTopic[iNumber]] += 1
+                    docTopicFreq[jDocId, wordTopic[iNumber]] += 1
+            else:
+                wordIdentity = booksIV.integerVocab[iWord]
                 wordTopicFreq[wordIdentity, wordTopic[iNumber]] += 1
                 docTopicFreq[jDocId, wordTopic[iNumber]] += 1
 
@@ -127,27 +135,42 @@ for iTopicList in range(len(numTopicsList)):
             iGibbs += 1
             iDocId = 0
             iDocIdPrevWord = 0
-            for iNumber, iWord in enumerate(books.listOfWords[1:]):
-                topicNumber = wordTopic[iNumber]
-                wordIdentity = booksIV.integerVocab[iWord]
-                prevWord = books.listOfWords[iNumber - 1]
-                prevWordIdentity = booksIV.integerVocab[prevWord]
-                iDocId = books.wordInDocIndex[iNumber]
-                iDocIdPrevWord = books.wordInDocIndex[iNumber - 1]
-                if iDocId == iDocIdPrevWord:
-                    bigramTopicFreq[wordIdentity, prevWordIdentity, topicNumber] -= 1
-                    wordTopicFreq[wordIdentity, topicNumber] -= 1
-                    docTopicFreq[iDocId, topicNumber] -= 1
-                    docTopicProb = estimateDocTopicProb(iDocId)
-                    wordTopicProb = estimateTopicWordProb(wordIdentity,
-                                                          prevWordIdentity)  # Notice we have passed the integer index
-                    probWordInToken = np.multiply(docTopicProb, wordTopicProb)
-                    selectedTopic = np.random.multinomial(1, probWordInToken / probWordInToken.sum()).argmax()
-                    bigramTopicFreq[wordIdentity, prevWordIdentity, selectedTopic] += 1
-                    docTopicFreq[iDocId, selectedTopic] += 1
-                    wordTopicFreq[wordIdentity, selectedTopic] += 1
-                    wordTopic[iNumber] = selectedTopic
-                else:
+            for iNumber, iWord in enumerate(books.listOfWords):
+                if iNumber > 0:
+                    topicNumber = wordTopic[iNumber]
+                    wordIdentity = booksIV.integerVocab[iWord]
+                    prevWord = books.listOfWords[iNumber - 1]
+                    prevWordIdentity = booksIV.integerVocab[prevWord]
+                    iDocId = books.wordInDocIndex[iNumber]
+                    iDocIdPrevWord = books.wordInDocIndex[iNumber - 1]
+                    if iDocId == iDocIdPrevWord:
+                        bigramTopicFreq[wordIdentity, prevWordIdentity, topicNumber] -= 1
+                        wordTopicFreq[wordIdentity, topicNumber] -= 1
+                        docTopicFreq[iDocId, topicNumber] -= 1
+                        docTopicProb = estimateDocTopicProb(iDocId)
+                        wordTopicProb = estimateTopicWordProb(wordIdentity,
+                                                              prevWordIdentity)  # Notice we have passed the integer index
+                        probWordInToken = np.multiply(docTopicProb, wordTopicProb)
+                        selectedTopic = np.random.multinomial(1, probWordInToken / probWordInToken.sum()).argmax()
+                        bigramTopicFreq[wordIdentity, prevWordIdentity, selectedTopic] += 1
+                        docTopicFreq[iDocId, selectedTopic] += 1
+                        wordTopicFreq[wordIdentity, selectedTopic] += 1
+                        wordTopic[iNumber] = selectedTopic
+                    else:
+                        wordTopicFreq[wordIdentity, topicNumber] -= 1
+                        docTopicFreq[iDocId, topicNumber] -= 1
+                        docTopicProb = estimateDocTopicProb(iDocId)
+                        wordTopicProb = estimateTopicWordProbFirstWords(
+                            wordIdentity)  # First words are first word in each doc.
+                        probWordInToken = np.multiply(docTopicProb, wordTopicProb)
+                        selectedTopic = np.random.multinomial(1, probWordInToken / probWordInToken.sum()).argmax()
+                        wordTopicFreq[booksIV.integerVocab[iWord], selectedTopic] += 1
+                        docTopicFreq[iDocId, selectedTopic] += 1
+                        wordTopic[iNumber] = selectedTopic
+                else:  # This is only for first word in corpus. Not doing this shouldn't affect result in any way. So
+                    # this part can be skipped too
+                    wordIdentity = booksIV.integerVocab[iWord]
+                    topicNumber = wordTopic[iNumber]
                     wordTopicFreq[wordIdentity, topicNumber] -= 1
                     docTopicFreq[iDocId, topicNumber] -= 1
                     docTopicProb = estimateDocTopicProb(iDocId)
