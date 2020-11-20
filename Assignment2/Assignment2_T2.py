@@ -65,11 +65,22 @@ def estimateTopicWordProb(wordIndex, prevWordIndex):
     return numerator / denominator
 
 
+def estimateTopicWordProbFirstWords(wordIndex):  # The first words don't have preceeding word so this function is
+    # picked from task 1 of this assignment.
+    numerator = wordTopicFreq[wordIndex] + dirParameter
+    sumWordsinToken = wordTopicFreq.sum(axis=0)
+    denominator = sumWordsinToken + numUniqueWords * dirParameter
+    return numerator / denominator
+
+
 filePath = "D:\\Masters Program Chalmers\\Projects and Labs\\MLNLP\\Assignment1\\a1_data\\books.txt"
 fileEncoding = "ISO-8859-1"
+filePath2 = "D:\\Masters Program Chalmers\\Projects and Labs\\MLNLP\\Assignment1\\a1_data\\A2_Task2.txt"
 
-maxGibbsIterations = 200
-maxTokens = 100000
+maxGibbsIterations = 5
+maxTokens = 1000
+desiredWordsToBePrinted = 50
+
 books = Corpus(filePath, fileEncoding, maxTokens)
 maxTokens = len(books.listOfWords)
 numUniqueWords = len(books.bagOfWords)
@@ -89,10 +100,10 @@ for iTopicList in range(len(numTopicsList)):
         dirParameter = parameterList[iParameterList][0]
         topicParameter = parameterList[iParameterList][1]
 
+        wordTopic = np.random.randint(0, numTopics, maxTokens)
         bigramTopicFreq = np.zeros((numUniqueWords, numUniqueWords, numTopics),
                                    dtype=int)  # This is transpose of what it suppose to be
         wordTopicFreq = np.zeros((numUniqueWords, numTopics), dtype=int)
-        wordTopic = np.random.randint(0, numTopics, maxTokens)
 
         docId = np.arange(0, numDocs, 1)
         docTopicFreq = np.zeros((numDocs, numTopics), dtype=int)
@@ -111,7 +122,6 @@ for iTopicList in range(len(numTopicsList)):
                 docTopicFreq[jDocId, wordTopic[iNumber]] += 1
 
         iGibbs = 0
-
         while iGibbs < maxGibbsIterations:
             print(iGibbs)
             iGibbs += 1
@@ -136,6 +146,17 @@ for iTopicList in range(len(numTopicsList)):
                     bigramTopicFreq[wordIdentity, prevWordIdentity, selectedTopic] += 1
                     docTopicFreq[iDocId, selectedTopic] += 1
                     wordTopicFreq[wordIdentity, selectedTopic] += 1
+                    wordTopic[iNumber] = selectedTopic
+                else:
+                    wordTopicFreq[wordIdentity, topicNumber] -= 1
+                    docTopicFreq[iDocId, topicNumber] -= 1
+                    docTopicProb = estimateDocTopicProb(iDocId)
+                    wordTopicProb = estimateTopicWordProbFirstWords(
+                        wordIdentity)  # First words are first word in each doc.
+                    probWordInToken = np.multiply(docTopicProb, wordTopicProb)
+                    selectedTopic = np.random.multinomial(1, probWordInToken / probWordInToken.sum()).argmax()
+                    wordTopicFreq[booksIV.integerVocab[iWord], selectedTopic] += 1
+                    docTopicFreq[iDocId, selectedTopic] += 1
                     wordTopic[iNumber] = selectedTopic
 
         topicWordRelationByRawCount = list()
@@ -162,18 +183,23 @@ for iTopicList in range(len(numTopicsList)):
             topicWordRelationByRelativeCount[iTopic] = sorted(topicWordRelationByRelativeCount[iTopic].items(),
                                                               key=lambda x: x[1], reverse=True)
 
-        numWordsToPrint = 50
+        maxWordsCanBePrinted = list()
+        for iMax in range(numTopics):
+            maxWordsCanBePrinted.append(len(topicWordRelationByRawCount[iMax]))
+
+        numWordsToPrint = list()
+        for iMin in range(numTopics):
+            numWordsToPrint.append(min(maxWordsCanBePrinted[iMin], desiredWordsToBePrinted))
         # for iTopic in range(numTopics):
         #     print("Topic number = %d, number of words in it = %d" % (
         #         iTopic, len(topicWordRelationByRelativeCount[iTopic])))
-        #     for x in range(numWordsToPrint):
+        #     for x in range(numWordsToPrint[iTopic]):
         #         print(topicWordRelationByRawCount[iTopic][x][0], end="\t")
         #     print("")
-        #     for x in range(numWordsToPrint):
+        #     for x in range(numWordsToPrint[iTopic]):
         #         print(topicWordRelationByRelativeCount[iTopic][x][0], end="\t")
         #     print("\n")
 
-        filePath2 = "D:\\Masters Program Chalmers\\Projects and Labs\\MLNLP\\Assignment1\\a1_data\\A2_Task2.txt"
         fileHandler2 = open(filePath2, 'a')
         with fileHandler2:
             fileHandler2.write("K = %s, alpha = beta = %s\n" % (str(numTopics), str(dirParameter)))
@@ -181,11 +207,11 @@ for iTopicList in range(len(numTopicsList)):
                 fileHandler2.write("\n\nTopic number = %s, number of words in it = %s\n" % (
                     str(iTopic), str(len(topicWordRelationByRelativeCount[iTopic]))))
                 fileHandler2.write("\nBy raw count\n")
-                for x in range(numWordsToPrint):
+                for x in range(numWordsToPrint[iTopic]):
                     fileHandler2.write(topicWordRelationByRawCount[iTopic][x][0])
                     fileHandler2.write("\t")
                 fileHandler2.write("\nBy relative count\n")
-                for x in range(numWordsToPrint):
+                for x in range(numWordsToPrint[iTopic]):
                     fileHandler2.write(topicWordRelationByRelativeCount[iTopic][x][0])
                     fileHandler2.write("\t")
             fileHandler2.write("\n\n\n")
