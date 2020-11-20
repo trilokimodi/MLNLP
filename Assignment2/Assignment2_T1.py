@@ -69,8 +69,8 @@ filePath = "D:\\Masters Program Chalmers\\Projects and Labs\\MLNLP\\Assignment1\
 fileEncoding = "ISO-8859-1"
 filePath2 = "D:\\Masters Program Chalmers\\Projects and Labs\\MLNLP\\Assignment1\\a1_data\\A2_Task1.txt"
 
-maxGibbsIterations = 5
-maxTokens = 1000
+maxGibbsIterations = 250
+maxTokens = 100000
 desiredWordsToBePrinted = 50
 
 books = Corpus(filePath, fileEncoding, maxTokens)
@@ -83,7 +83,7 @@ numOfMostCommonWords = maxVocabSize  # Not considering padding and out-of-vocabu
 books.most_common_word(numOfMostCommonWords)
 booksIV = IntegerVocabulary(books.corpusMostCommonWords, maxVocabSize)
 
-numTopicsList = [10, 5]
+numTopicsList = [10, 50]
 parameterList = [(0.1, 0.1), (0.01, 0.01)]
 
 for iTopicList in range(len(numTopicsList)):

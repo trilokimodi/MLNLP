@@ -77,8 +77,8 @@ filePath = "D:\\Masters Program Chalmers\\Projects and Labs\\MLNLP\\Assignment1\
 fileEncoding = "ISO-8859-1"
 filePath2 = "D:\\Masters Program Chalmers\\Projects and Labs\\MLNLP\\Assignment1\\a1_data\\A2_Task2.txt"
 
-maxGibbsIterations = 5
-maxTokens = 1000
+maxGibbsIterations = 250
+maxTokens = 100000
 desiredWordsToBePrinted = 50
 
 books = Corpus(filePath, fileEncoding, maxTokens)
