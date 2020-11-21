@@ -1,6 +1,7 @@
 from collections import Counter
 import numpy as np
 from spacy.lang.en import English
+import pandas as pd
 
 nlp = English()
 
@@ -9,7 +10,7 @@ class Corpus:
     def __init__(self, filePath, encoding, maxTokens):
         self.bagOfWords = Counter()
         self.listOfWords = ["removeMe"]  # So that the list is not empty
-        self.wordInDocIndex = np.zeros(1, dtype=int)
+        self.wordInDocIndex = np.zeros(1, dtype=int)  # So that array is not empty
         self.docLen = list()
         self.numDocs = 0
         docNumber = 0
@@ -65,20 +66,20 @@ def estimateTopicWordProb(wordIndex, prevWordIndex):
     return numerator / denominator
 
 
-def estimateTopicWordProbFirstWords(wordIndex):  # The first words don't have preceeding word so this function is
+def estimateTopicWordProbUnPairedWords(wordIndex):  # The first words don't have preceeding word so this function is
     # picked from task 1 of this assignment.
     numerator = wordTopicFreq[wordIndex] + dirParameter
     sumWordsinToken = wordTopicFreq.sum(axis=0)
-    denominator = sumWordsinToken + numUniqueWords * dirParameter
+    denominator = sumWordsinToken + numUniqueWords * dirParameter  # Need to check if should be commented or included.
     return numerator / denominator
 
 
 filePath = "D:\\Masters Program Chalmers\\Projects and Labs\\MLNLP\\Assignment1\\a1_data\\books.txt"
 fileEncoding = "ISO-8859-1"
-filePath2 = "D:\\Masters Program Chalmers\\Projects and Labs\\MLNLP\\Assignment1\\a1_data\\A2_Task2.txt"
+filePathTask2Output = "D:\\Masters Program Chalmers\\Projects and Labs\\MLNLP\\Assignment1\\a1_data\\A2_Task2.txt"
 
-maxGibbsIterations = 250
-maxTokens = 100000
+maxGibbsIterations = 5
+maxTokens = 1000
 desiredWordsToBePrinted = 50
 
 books = Corpus(filePath, fileEncoding, maxTokens)
@@ -91,6 +92,7 @@ numOfMostCommonWords = maxVocabSize  # Not considering padding and out-of-vocabu
 books.most_common_word(numOfMostCommonWords)
 booksIV = IntegerVocabulary(books.corpusMostCommonWords, maxVocabSize)
 
+documentTopicsDF = pd.DataFrame()
 numTopicsList = [5, 10]
 parameterList = [(0.1, 0.1), (0.01, 0.01)]
 
@@ -149,32 +151,32 @@ for iTopicList in range(len(numTopicsList)):
                         docTopicFreq[iDocId, topicNumber] -= 1
                         docTopicProb = estimateDocTopicProb(iDocId)
                         wordTopicProb = estimateTopicWordProb(wordIdentity,
-                                                              prevWordIdentity)  # Notice we have passed the integer index
+                                                              prevWordIdentity)  # Notice, both are integer index
                         probWordInToken = np.multiply(docTopicProb, wordTopicProb)
                         selectedTopic = np.random.multinomial(1, probWordInToken / probWordInToken.sum()).argmax()
                         bigramTopicFreq[wordIdentity, prevWordIdentity, selectedTopic] += 1
                         docTopicFreq[iDocId, selectedTopic] += 1
                         wordTopicFreq[wordIdentity, selectedTopic] += 1
                         wordTopic[iNumber] = selectedTopic
-                    else:
+                    else:  # Not necessary as only a few words will be affected.(The first word in every doc)
                         wordTopicFreq[wordIdentity, topicNumber] -= 1
                         docTopicFreq[iDocId, topicNumber] -= 1
                         docTopicProb = estimateDocTopicProb(iDocId)
-                        wordTopicProb = estimateTopicWordProbFirstWords(
+                        wordTopicProb = estimateTopicWordProbUnPairedWords(
                             wordIdentity)  # First words are first word in each doc.
                         probWordInToken = np.multiply(docTopicProb, wordTopicProb)
                         selectedTopic = np.random.multinomial(1, probWordInToken / probWordInToken.sum()).argmax()
                         wordTopicFreq[booksIV.integerVocab[iWord], selectedTopic] += 1
                         docTopicFreq[iDocId, selectedTopic] += 1
                         wordTopic[iNumber] = selectedTopic
-                else:  # This is only for first word in corpus. Not doing this shouldn't affect result in any way. So
+                else:  # This is only for first word in entire corpus. Not doing this shouldn't affect result at all. So
                     # this part can be skipped too
                     wordIdentity = booksIV.integerVocab[iWord]
                     topicNumber = wordTopic[iNumber]
                     wordTopicFreq[wordIdentity, topicNumber] -= 1
                     docTopicFreq[iDocId, topicNumber] -= 1
                     docTopicProb = estimateDocTopicProb(iDocId)
-                    wordTopicProb = estimateTopicWordProbFirstWords(
+                    wordTopicProb = estimateTopicWordProbUnPairedWords(
                         wordIdentity)  # First words are first word in each doc.
                     probWordInToken = np.multiply(docTopicProb, wordTopicProb)
                     selectedTopic = np.random.multinomial(1, probWordInToken / probWordInToken.sum()).argmax()
@@ -182,6 +184,7 @@ for iTopicList in range(len(numTopicsList)):
                     docTopicFreq[iDocId, selectedTopic] += 1
                     wordTopic[iNumber] = selectedTopic
 
+        # Result part - 1 (Need to make a dataframe instead of text file)
         topicWordRelationByRawCount = list()
         topicWordRelationByRelativeCount = list()
         for iTopic in range(numTopics):
@@ -198,6 +201,10 @@ for iTopicList in range(len(numTopicsList)):
                 temp = topicWordRelationByRawCount[iTopic][iWord]
                 topicWordRelationByRelativeCount[iTopic][iWord] = temp / books.bagOfWords[
                     iWord]
+
+        backupRel = list()
+        for iTopic in range(numTopics):
+            backupRel.append(topicWordRelationByRelativeCount[iTopic].copy())
 
         for iTopic in range(numTopics):
             topicWordRelationByRawCount[iTopic] = sorted(topicWordRelationByRawCount[iTopic].items(),
@@ -223,7 +230,7 @@ for iTopicList in range(len(numTopicsList)):
         #         print(topicWordRelationByRelativeCount[iTopic][x][0], end="\t")
         #     print("\n")
 
-        fileHandler2 = open(filePath2, 'a')
+        fileHandler2 = open(filePathTask2Output, 'a')
         with fileHandler2:
             fileHandler2.write("K = %s, alpha = beta = %s\n" % (str(numTopics), str(dirParameter)))
             for iTopic in range(numTopics):
@@ -239,3 +246,59 @@ for iTopicList in range(len(numTopicsList)):
                     fileHandler2.write("\t")
             fileHandler2.write("\n\n\n")
         fileHandler2.close()
+
+        listHeader = ["removeMe"]
+        for i in range(numTopics):
+            listHeader = listHeader + ["Topic {}".format(i)]
+        listHeader.pop(0)
+        colHeaders = pd.MultiIndex.from_product([listHeader, ['Raw', 'Rel']])
+        resultTopicDF = pd.DataFrame()
+        for iDFRow in range(min(numWordsToPrint)):
+            tempRow = list()
+            for iDFCell in range(numTopics):
+                tempRow.append(topicWordRelationByRawCount[iDFCell][iDFRow][0])
+                tempRow.append(topicWordRelationByRelativeCount[iDFCell][iDFRow][0])
+            tempDF = pd.DataFrame([tempRow])
+            resultTopicDF = resultTopicDF.append(tempDF, ignore_index=True)
+            tempRow.clear()
+        resultTopicDF.columns = colHeaders
+        print(resultTopicDF.head(10))
+
+        # Result part - 2. Plot something here( Maybe number of words)
+
+
+        # Result part - 3. Works fine(Hopefully)
+        topicCount = list()
+        topicCountPerc = list()
+        maxTopicNumPerc = np.zeros((numDocs, 2), dtype=float)
+        wordsInMaxTopic = list()
+        for iDoc in range(numDocs):
+            topicCountPerc.append(np.zeros(numTopics, dtype=float))
+            topicCount.append(np.zeros(numTopics, dtype=int))
+            wordsInMaxTopic.append(list())
+
+            iCount = 0
+            for iWord in range(iCount, iCount + books.docLen[iDoc]):
+                topicCount[iDoc][wordTopic[iWord]] += 1
+            iCount += books.docLen[iDoc]
+            topicCountPerc[iDoc] = topicCount[iDoc] / books.docLen[iDoc]
+
+            iCount = 0
+            maxTopicNumPerc[iDoc][0] = topicCount[iDoc].argmax()
+            maxTopicNumPerc[iDoc][1] = topicCountPerc[iDoc].argmax()
+            for iWord in range(iCount, iCount + books.docLen[iDoc]):
+                if backupRel[wordTopic[iWord]][books.listOfWords[iWord]] == 1 and wordTopic[iWord] == \
+                        maxTopicNumPerc[iDoc][0]:
+                    wordsInMaxTopic[iDoc].append(books.listOfWords[iWord])
+                iCount += books.docLen[iDoc]
+
+        documentTopicsDF = pd.DataFrame()
+
+        documentTopicsDF.insert(0, "Document Number", np.arange(0, numDocs, 1))
+        documentTopicsDF.insert(1, "Dominant Topic", maxTopicNumPerc[:, 0])
+        documentTopicsDF.insert(2, "Percentage", maxTopicNumPerc[:, 1])
+        documentTopicsDF.insert(3, "Key words", wordsInMaxTopic)
+        documentTopicsDF.sort_values("Percentage", ascending=False)
+        print(documentTopicsDF.head(10))
+
+        print("Hello")

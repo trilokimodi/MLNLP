@@ -58,7 +58,7 @@ def estimateDocTopicProb(docId):
     return numerator / denominator
 
 
-def estimateTopicWordProb(wordIndex):
+def estimateTopicWordProbUnPairedWords(wordIndex):
     numerator = wordTopicFreq[wordIndex] + dirParameter
     sumWordsinToken = wordTopicFreq.sum(axis=0)
     denominator = sumWordsinToken + numUniqueWords * dirParameter
@@ -67,7 +67,7 @@ def estimateTopicWordProb(wordIndex):
 
 filePath = "D:\\Masters Program Chalmers\\Projects and Labs\\MLNLP\\Assignment1\\a1_data\\books.txt"
 fileEncoding = "ISO-8859-1"
-filePath2 = "D:\\Masters Program Chalmers\\Projects and Labs\\MLNLP\\Assignment1\\a1_data\\A2_Task1.txt"
+filePathTask1OutPut = "D:\\Masters Program Chalmers\\Projects and Labs\\MLNLP\\Assignment1\\a1_data\\A2_Task1.txt"
 
 maxGibbsIterations = 250
 maxTokens = 100000
@@ -118,7 +118,8 @@ for iTopicList in range(len(numTopicsList)):
                 iDocId = books.wordInDocIndex[iNumber]
                 docTopicFreq[iDocId, topicNumber] -= 1
                 docTopicProb = estimateDocTopicProb(iDocId)
-                wordTopicProb = estimateTopicWordProb(wordIdentity)  # Notice we have passed the integer index
+                wordTopicProb = estimateTopicWordProbUnPairedWords(
+                    wordIdentity)  # Notice we have passed the integer index
                 probWordInToken = np.multiply(docTopicProb, wordTopicProb)
                 selectedTopic = np.random.multinomial(1, probWordInToken / probWordInToken.sum()).argmax()
                 wordTopicFreq[booksIV.integerVocab[iWord], selectedTopic] += 1
@@ -166,7 +167,7 @@ for iTopicList in range(len(numTopicsList)):
         #         print(topicWordRelationByRelativeCount[iTopic][x][0], end="\t")
         #     print("\n")
 
-        fileHandler2 = open(filePath2, 'a')
+        fileHandler2 = open(filePathTask1OutPut, 'a')
         with fileHandler2:
             fileHandler2.write("K = %s, alpha = beta = %s\n" % (str(numTopics), str(dirParameter)))
             for iTopic in range(numTopics):
