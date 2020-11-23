@@ -2,6 +2,8 @@ from collections import Counter
 import numpy as np
 from spacy.lang.en import English
 import pandas as pd
+import matplotlib.pyplot as plt
+from matplotlib.ticker import MaxNLocator
 
 nlp = English()
 
@@ -76,11 +78,11 @@ def estimateTopicWordProbUnPairedWords(wordIndex):  # The first words don't have
 
 filePath = "D:\\Masters Program Chalmers\\Projects and Labs\\MLNLP\\Assignment1\\a1_data\\books.txt"
 fileEncoding = "ISO-8859-1"
-filePathTask2Output = "D:\\Masters Program Chalmers\\Projects and Labs\\MLNLP\\Assignment1\\a1_data\\A2_Task2.txt"
+filePathTask2Output = "D:\\Masters Program Chalmers\\Projects and Labs\\MLNLP\\Assignment2\\A2_Task2.txt"
 
-maxGibbsIterations = 5
-maxTokens = 1000
-desiredWordsToBePrinted = 50
+maxGibbsIterations = 200
+maxTokens = 100000
+desiredWordsToBePrinted = 20
 
 books = Corpus(filePath, fileEncoding, maxTokens)
 maxTokens = len(books.listOfWords)
@@ -93,15 +95,25 @@ books.most_common_word(numOfMostCommonWords)
 booksIV = IntegerVocabulary(books.corpusMostCommonWords, maxVocabSize)
 
 documentTopicsDF = pd.DataFrame()
+figureNum = 0
 numTopicsList = [5, 10]
 parameterList = [(0.1, 0.1), (0.01, 0.01)]
 
+wordTopicResultsT2 = list()
+sumWordsinTokenResultsT2 = list()
+
+iCase = 0
 for iTopicList in range(len(numTopicsList)):
     for iParameterList in range(len(parameterList)):
+
         numTopics = numTopicsList[iTopicList]
         dirParameter = parameterList[iParameterList][0]
         topicParameter = parameterList[iParameterList][1]
 
+        wordTopicResultsT2.append(list())
+        sumWordsinTokenResultsT2.append(np.zeros(numTopics))
+
+        # Random initialization matrix updates - Can be changed to final matrix from task 1 to avoid burn in
         wordTopic = np.random.randint(0, numTopics, maxTokens)
         bigramTopicFreq = np.zeros((numUniqueWords, numUniqueWords, numTopics),
                                    dtype=int)  # This is transpose of what it suppose to be
@@ -110,7 +122,6 @@ for iTopicList in range(len(numTopicsList)):
         docId = np.arange(0, numDocs, 1)
         docTopicFreq = np.zeros((numDocs, numTopics), dtype=int)
 
-        # Random initialization matrix updates
         jDocId = 0
         for iNumber, iWord in enumerate(books.listOfWords):
             if iNumber > 0:
@@ -184,14 +195,45 @@ for iTopicList in range(len(numTopicsList)):
                     docTopicFreq[iDocId, selectedTopic] += 1
                     wordTopic[iNumber] = selectedTopic
 
-        # Result part - 1 (Need to make a dataframe instead of text file)
+        wordTopicResultsT2[iCase] = wordTopic
+        sumWordsinTokenResultsT2[iCase] = wordTopicFreq.sum(axis=0)
+        iCase += 1
+
+# Results
+topTopicsSize = 5
+iCase = 0
+for iTopicList in range(len(numTopicsList)):
+    for iParameterList in range(len(parameterList)):
+        numTopics = numTopicsList[iTopicList]
+        dirParameter = parameterList[iParameterList][0]
+        topicParameter = parameterList[iParameterList][1]
+
+        print("Case %d, \u03B1 = %.2f, \u03B2 = %.2f, K = %d\n\n" % (iCase + 1, topicParameter, dirParameter, numTopics))
+
+        # Result part - 1. Plots
+        sumWordsinToken = sumWordsinTokenResultsT2[iCase].copy()
+        figureNum += 1
+        ax = plt.figure(figureNum).gca()
+        plt.scatter(np.arange(0, numTopics), sumWordsinToken / maxTokens, label="All words")
+        plt.xlabel("Topic Number")
+        plt.ylabel("fraction of words")
+        plt.title(r"Fraction of words, $\alpha = {}, \beta$ = {}, K = {}".format(str(topicParameter), str(dirParameter),
+                                                                                 str(numTopics)))
+        plt.legend()
+        ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+        file = "D:\\Masters Program Chalmers\\Projects and Labs\\MLNLP\\Assignment2\\A2_T2_case" + str(iCase) + ".png"
+        plt.savefig(file)
+
+        # Result part - 2
         topicWordRelationByRawCount = list()
         topicWordRelationByRelativeCount = list()
+        topicWordRelationByRelInMaxRaw = list()
         for iTopic in range(numTopics):
             topicWordRelationByRawCount.append(Counter())
+            topicWordRelationByRelInMaxRaw.append(Counter())
 
         for iNumber, iWord in enumerate(books.listOfWords):
-            topicWordRelationByRawCount[wordTopic[iNumber]][iWord] += 1
+            topicWordRelationByRawCount[wordTopicResultsT2[iCase][iNumber]][iWord] += 1
 
         for iTopic in range(numTopics):
             topicWordRelationByRelativeCount.append(topicWordRelationByRawCount[iTopic].copy())
@@ -202,9 +244,10 @@ for iTopicList in range(len(numTopicsList)):
                 topicWordRelationByRelativeCount[iTopic][iWord] = temp / books.bagOfWords[
                     iWord]
 
-        backupRel = list()
         for iTopic in range(numTopics):
-            backupRel.append(topicWordRelationByRelativeCount[iTopic].copy())
+            tempDict = [topicWordRelationByRawCount[iTopic], topicWordRelationByRelativeCount[iTopic]]
+            for iWord in topicWordRelationByRawCount[iTopic].keys():
+                topicWordRelationByRelInMaxRaw[iTopic][iWord] = tuple(i[iWord] for i in tempDict)
 
         for iTopic in range(numTopics):
             topicWordRelationByRawCount[iTopic] = sorted(topicWordRelationByRawCount[iTopic].items(),
@@ -212,6 +255,8 @@ for iTopicList in range(len(numTopicsList)):
                                                          reverse=True)
             topicWordRelationByRelativeCount[iTopic] = sorted(topicWordRelationByRelativeCount[iTopic].items(),
                                                               key=lambda x: x[1], reverse=True)
+            topicWordRelationByRelInMaxRaw[iTopic] = sorted(topicWordRelationByRelInMaxRaw[iTopic].items(),
+                                                            key=lambda x: x[1][0], reverse=True)
 
         maxWordsCanBePrinted = list()
         for iMax in range(numTopics):
@@ -220,22 +265,21 @@ for iTopicList in range(len(numTopicsList)):
         numWordsToPrint = list()
         for iMin in range(numTopics):
             numWordsToPrint.append(min(maxWordsCanBePrinted[iMin], desiredWordsToBePrinted))
-        # for iTopic in range(numTopics):
-        #     print("Topic number = %d, number of words in it = %d" % (
-        #         iTopic, len(topicWordRelationByRelativeCount[iTopic])))
-        #     for x in range(numWordsToPrint[iTopic]):
-        #         print(topicWordRelationByRawCount[iTopic][x][0], end="\t")
-        #     print("")
-        #     for x in range(numWordsToPrint[iTopic]):
-        #         print(topicWordRelationByRelativeCount[iTopic][x][0], end="\t")
-        #     print("\n")
+            topicWordRelationByRelInMaxRaw[iMin] = topicWordRelationByRelInMaxRaw[iMin][:numWordsToPrint[iMin]]
+            topicWordRelationByRelInMaxRaw[iMin] = sorted(topicWordRelationByRelInMaxRaw[iMin],
+                                                          key=lambda x: x[1][1], reverse=True)
 
+        uniqueWordsinToken = [len(topicWordRelationByRelativeCount[iTopic]) for iTopic in range(numTopics)]
+        uniqueWordsinToken = np.array(uniqueWordsinToken)
+
+        # Write to a text file ( Uncomment if needed )
         fileHandler2 = open(filePathTask2Output, 'a')
         with fileHandler2:
             fileHandler2.write("K = %s, alpha = beta = %s\n" % (str(numTopics), str(dirParameter)))
             for iTopic in range(numTopics):
-                fileHandler2.write("\n\nTopic number = %s, number of words in it = %s\n" % (
-                    str(iTopic), str(len(topicWordRelationByRelativeCount[iTopic]))))
+                fileHandler2.write(
+                    "\n\nTopic number = %s, number of unique words in it = %s and total number of words in it = %s\n" % (
+                        str(iTopic), str(uniqueWordsinToken[iTopic]), str(sumWordsinToken[iTopic])))
                 fileHandler2.write("\nBy raw count\n")
                 for x in range(numWordsToPrint[iTopic]):
                     fileHandler2.write(topicWordRelationByRawCount[iTopic][x][0])
@@ -247,58 +291,73 @@ for iTopicList in range(len(numTopicsList)):
             fileHandler2.write("\n\n\n")
         fileHandler2.close()
 
+        topTopics = sumWordsinToken.argsort()[numTopics - topTopicsSize:]
         listHeader = ["removeMe"]
-        for i in range(numTopics):
-            listHeader = listHeader + ["Topic {}".format(i)]
+        for i in range(len(topTopics)):
+            listHeader = listHeader + ["Topic {}".format(topTopics[i])]
         listHeader.pop(0)
-        colHeaders = pd.MultiIndex.from_product([listHeader, ['Raw', 'Rel']])
+        colHeaders = pd.MultiIndex.from_product([listHeader, ['Raw', 'Rel', 'RelRaw']])
         resultTopicDF = pd.DataFrame()
-        for iDFRow in range(min(numWordsToPrint)):
+        # for iDFRow in range(min(numWordsToPrint)):
+        for iDFRow in range(desiredWordsToBePrinted):
             tempRow = list()
-            for iDFCell in range(numTopics):
-                tempRow.append(topicWordRelationByRawCount[iDFCell][iDFRow][0])
-                tempRow.append(topicWordRelationByRelativeCount[iDFCell][iDFRow][0])
+            for iDFCell in range(len(topTopics)):
+                try:
+                    tempRow.append(topicWordRelationByRawCount[topTopics[iDFCell]][iDFRow][0])
+                except:
+                    tempRow.append("NA")
+                try:
+                    tempRow.append(topicWordRelationByRelativeCount[topTopics[iDFCell]][iDFRow][0])
+                except:
+                    tempRow.append("NA")
+                try:
+                    tempRow.append(topicWordRelationByRelInMaxRaw[topTopics[iDFCell]][iDFRow][0])
+                except:
+                    tempRow.append("NA")
             tempDF = pd.DataFrame([tempRow])
-            resultTopicDF = resultTopicDF.append(tempDF, ignore_index=True)
+            if len(tempRow) > 0:
+                resultTopicDF = resultTopicDF.append(tempDF, ignore_index=True)
             tempRow.clear()
         resultTopicDF.columns = colHeaders
-        print(resultTopicDF.head(10))
+        print(resultTopicDF.head(10).transpose())
 
-        # Result part - 2. Plot something here( Maybe number of words)
-
+        print("\n\n")
 
         # Result part - 3. Works fine(Hopefully)
         topicCount = list()
         topicCountPerc = list()
         maxTopicNumPerc = np.zeros((numDocs, 2), dtype=float)
         wordsInMaxTopic = list()
+        iPosition = 0
+        jPosition = 0
         for iDoc in range(numDocs):
             topicCountPerc.append(np.zeros(numTopics, dtype=float))
             topicCount.append(np.zeros(numTopics, dtype=int))
             wordsInMaxTopic.append(list())
 
-            iCount = 0
-            for iWord in range(iCount, iCount + books.docLen[iDoc]):
-                topicCount[iDoc][wordTopic[iWord]] += 1
-            iCount += books.docLen[iDoc]
+            for iWord in range(jPosition, jPosition + books.docLen[iDoc]):
+                topicCount[iDoc][wordTopicResultsT2[iCase][iWord]] += 1
+            jPosition += books.docLen[iDoc]
             topicCountPerc[iDoc] = topicCount[iDoc] / books.docLen[iDoc]
 
-            iCount = 0
-            maxTopicNumPerc[iDoc][0] = topicCount[iDoc].argmax()
-            maxTopicNumPerc[iDoc][1] = topicCountPerc[iDoc].argmax()
-            for iWord in range(iCount, iCount + books.docLen[iDoc]):
-                if backupRel[wordTopic[iWord]][books.listOfWords[iWord]] == 1 and wordTopic[iWord] == \
-                        maxTopicNumPerc[iDoc][0]:
+            maxTopicNumPerc[iDoc][0] = int(topicCount[iDoc].argmax())
+            maxTopicNumPerc[iDoc][1] = max(topicCountPerc[iDoc])
+
+            for iWord in range(iPosition, iPosition + books.docLen[iDoc]):
+                # if backupRel[wordTopicResultsT1[iCase][iWord]][books.listOfWords[iWord]] == 1:
+                if wordTopicResultsT2[iCase][iWord] == maxTopicNumPerc[iDoc][0]:
                     wordsInMaxTopic[iDoc].append(books.listOfWords[iWord])
-                iCount += books.docLen[iDoc]
+            iPosition += books.docLen[iDoc]
 
         documentTopicsDF = pd.DataFrame()
 
         documentTopicsDF.insert(0, "Document Number", np.arange(0, numDocs, 1))
         documentTopicsDF.insert(1, "Dominant Topic", maxTopicNumPerc[:, 0])
         documentTopicsDF.insert(2, "Percentage", maxTopicNumPerc[:, 1])
-        documentTopicsDF.insert(3, "Key words", wordsInMaxTopic)
-        documentTopicsDF.sort_values("Percentage", ascending=False)
+        documentTopicsDF.insert(3, "Words in dominant topic", wordsInMaxTopic)
+        documentTopicsDF = documentTopicsDF.sort_values("Percentage", ascending=False)
         print(documentTopicsDF.head(10))
+        print("\n\n")
+        iCase += 1
 
-        print("Hello")
+print("Hello")
